@@ -3,6 +3,8 @@ const storageService = require('../services/storageService');
 const EmailMeta = require('../models/EmailMeta');
 const nlpService = require('../services/nlpService');
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const getSessionUser = (req) => {
   const session = req.user || {};
   const user = session.user || session;
@@ -373,7 +375,7 @@ exports.startBackup = async (req, res) => {
     // Fetch last 10 messages for testing
     const listRes = await gmail.users.messages.list({
       userId: 'me',
-      maxResults: 10,
+      maxResults: 100,
       labelIds: ['INBOX'],
       includeSpamTrash: false
     });
@@ -437,8 +439,14 @@ exports.startBackup = async (req, res) => {
             attachmentPaths: storageResult.attachments,
             fullContent
           });
-          // Generate and store the vector embedding for the AI
-          await nlpService.createAndStoreEmbedding(userId, msg.id, fullEmail.body, storageService.supabase);
+          await nlpService.createAndStoreEmbedding(
+            userId.toString(), 
+            msg.id, 
+            fullEmail.body, 
+            storageService.supabase
+          );
+
+          
         } catch (createErr) {
           if (createErr && createErr.code === 11000) {
             continue;
@@ -535,6 +543,15 @@ exports.importEmails = async (req, res) => {
             attachmentPaths: storageResult.attachments,
             fullContent
           });
+          await nlpService.createAndStoreEmbedding(
+            userId.toString(), 
+            msg.id, 
+            fullEmail.body, 
+            storageService.supabase
+          );
+          // 3. Pause for 4.2 seconds to stay safely under 15 requests per minute
+          console.log(`Embedding saved for ${msg.id}. Pausing to prevent rate limits...`);
+          await delay(4200);
         } catch (createErr) {
           if (createErr && createErr.code === 11000) {
             continue;
@@ -871,3 +888,4 @@ exports.restoreEmails = async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 };
+

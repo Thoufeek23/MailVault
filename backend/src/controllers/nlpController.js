@@ -23,7 +23,7 @@ exports.askEmailQuestion = async (req, res) => {
     // You MUST have an RPC function named 'match_emails' in your Supabase SQL
     const { data: matchedEmails, error } = await storageService.supabase.rpc('match_emails', {
       query_embedding: questionEmbedding,
-      match_threshold: 0.6, // Adjust between 0.0 and 1.0 depending on desired strictness
+      match_threshold: 0.4, // Adjust between 0.0 and 1.0 depending on desired strictness
       match_count: 5,       // Retrieve top 5 matching emails
       p_user_id: userId     // STRICT PRIVACY: Only search this user's emails
     });

@@ -719,3 +719,193 @@ button.action-btn:disabled {
   font-size: 1.2rem;
   font-weight: 500;
 }
+
+.ask-gemini-wrapper {
+  position: fixed;
+  bottom: 2rem;
+  right: 2.5rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.ask-gemini-fab {
+  width: 65px;
+  height: 65px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4a90e2 0%, #2f80ed 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 15px rgba(47, 128, 237, 0.4);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ask-gemini-fab:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(47, 128, 237, 0.5);
+}
+
+.ask-gemini-popup {
+  background: var(--card-bg);
+  border-radius: 16px;
+  width: 360px;
+  max-height: 550px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  transform-origin: bottom right;
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.8) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.ask-gemini-header {
+  background: linear-gradient(135deg, #4a90e2 0%, #2f80ed 100%);
+  color: white;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ask-gemini-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.ask-gemini-header .close-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.ask-gemini-header .close-btn:hover {
+  opacity: 1;
+}
+
+.ask-gemini-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex-grow: 1;
+  background: #f9fbfd;
+  min-height: 200px;
+}
+
+.helper-text {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.gemini-response {
+  background: white;
+  padding: 1.25rem;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #333;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+.gemini-response p {
+  margin: 0.5rem 0;
+  white-space: pre-wrap;
+}
+
+.gemini-sources {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+  font-size: 0.85rem;
+  color: #777;
+}
+
+.gemini-sources ul {
+  margin: 0.5rem 0 0 1rem;
+  padding: 0;
+  list-style-type: square;
+}
+
+.ask-gemini-footer {
+  display: flex;
+  padding: 1rem 1.5rem;
+  background: white;
+  border-top: 1px solid var(--border-color);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.ask-gemini-footer input {
+  flex-grow: 1;
+  border: 1px solid #dcdcdc;
+  background: #f4f6f8;
+  border-radius: 20px;
+  padding: 0.65rem 1.25rem;
+  outline: none;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.ask-gemini-footer input:focus {
+  border-color: var(--primary-color);
+  background: #ffffff;
+}
+
+.ask-gemini-footer button {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.ask-gemini-footer button:hover:not(:disabled) {
+  background: #357abd;
+  transform: translateY(-1px);
+}
+
+.ask-gemini-footer button:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.spinner-small {
+  width: 18px;
+  height: 18px;
+  border: 2px solid white;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

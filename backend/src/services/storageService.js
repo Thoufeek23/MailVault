@@ -123,3 +123,5 @@ exports.getFileBuffer = async (path) => {
 
   throw new Error(`Unsupported file payload for path: ${path}`);
 };
+
+exports.supabase = supabase;

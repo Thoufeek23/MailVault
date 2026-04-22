@@ -44,7 +44,7 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <div className="nav-brand">
-        Backup Engine
+        Mail Vault
         <Download size={20} onClick={confirmImport} style={{ cursor: 'pointer', marginLeft: '10px' }} />
       </div>
       <div className="nav-tabs">

@@ -1,6 +1,7 @@
 const gmailService = require('../services/gmailService');
 const storageService = require('../services/storageService');
 const EmailMeta = require('../models/EmailMeta');
+const nlpService = require('../services/nlpService');
 
 const getSessionUser = (req) => {
   const session = req.user || {};
@@ -436,6 +437,8 @@ exports.startBackup = async (req, res) => {
             attachmentPaths: storageResult.attachments,
             fullContent
           });
+          // Generate and store the vector embedding for the AI
+          await nlpService.createAndStoreEmbedding(userId, msg.id, fullEmail.body, storageService.supabase);
         } catch (createErr) {
           if (createErr && createErr.code === 11000) {
             continue;

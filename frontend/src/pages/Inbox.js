@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../api/axiosConfig';
 import { Inbox as InboxIcon, Paperclip, RefreshCcw, Search, Filter } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
+import AskGemini from '../components/AskGemini';
 
 const INBOX_CACHE_TTL_MS = 30 * 1000;
 
@@ -368,6 +369,7 @@ const Inbox = () => {
           </table>
         </div>
       )}
+      <AskGemini />
     </div>
   );
 };

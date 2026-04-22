@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Mail, CalendarDays, CalendarRange, CalendarCheck2, Trash2 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import api from '../api/axiosConfig';
+import AskGemini from '../components/AskGemini';
 
 const DASHBOARD_STATS_CACHE_TTL_MS = 60 * 1000;
 
@@ -244,6 +245,7 @@ const Dashboard = () => {
           View Backed Up Emails
         </Link>
       </div>
+      <AskGemini />
     </div>
   );
 };

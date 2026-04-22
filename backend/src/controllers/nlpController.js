@@ -59,7 +59,7 @@ exports.askEmailQuestion = async (req, res) => {
     `;
 
     // 5. Generate the final answer using Gemini 1.5 Flash (Fast and capable)
-    const chatModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const chatModel = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
     const result = await chatModel.generateContent(prompt);
     const answer = result.response.text();
 

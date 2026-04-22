@@ -8,7 +8,7 @@ const Login = () => {
   return (
     <div className="login-card">
       <Shield size={48} color="#4a90e2" />
-      <h1>Backup Engine</h1>
+      <h1>Mail Vault</h1>
       <p>Securely back up your Gmail messages.</p>
       <button onClick={login} className="google-btn">
         <Mail size={20} />

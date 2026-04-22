@@ -2,9 +2,12 @@ const EmailMeta = require('../models/EmailMeta');
 const User = require('../models/User');
 const gmailService = require('./gmailService');
 const storageService = require('./storageService');
+const nlpService = require('./nlpService');
 
 const MONITOR_INTERVAL_MS = Number(process.env.INBOX_MONITOR_INTERVAL_MS) || 10000;
 const MONITOR_FETCH_LIMIT = Number(process.env.INBOX_MONITOR_FETCH_LIMIT) || 50;
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const monitors = new Map();
 
@@ -156,6 +159,17 @@ const backupRecentInboxMessages = async (user, afterDate) => {
         fullContent
       });
       copied.push(msg.id);
+      try {
+        await nlpService.createAndStoreEmbedding(
+          user._id.toString(),
+          msg.id,
+          fullEmail.body || '', // Extracting the body text
+          storageService.supabase
+        );
+        await sleep(4000);
+      } catch (embedErr) {
+        console.error(`Embedding failed for new message ${msg.id}:`, embedErr.message);
+      }
     } catch (createErr) {
       if (createErr && createErr.code === 11000) {
         continue;
@@ -198,6 +212,17 @@ const backupRecentInboxMessages = async (user, afterDate) => {
     );
 
     copied.push(msg.id);
+    try {
+      await nlpService.createAndStoreEmbedding(
+        user._id.toString(),
+        msg.id,
+        fullEmail.body || '', // Extracting the body text
+        storageService.supabase
+      );
+      await sleep(4000);
+    } catch (embedErr) {
+      console.error(`Embedding failed for repaired message ${msg.id}:`, embedErr.message);
+    }
   }
 
   return { backedUp: copied.length, messageIds: copied };

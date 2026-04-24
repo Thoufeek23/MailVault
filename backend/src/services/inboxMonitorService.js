@@ -4,7 +4,7 @@ const gmailService = require('./gmailService');
 const storageService = require('./storageService');
 const nlpService = require('./nlpService');
 
-const MONITOR_INTERVAL_MS = Number(process.env.INBOX_MONITOR_INTERVAL_MS) || 10000;
+const MONITOR_INTERVAL_MS = Number(process.env.INBOX_MONITOR_INTERVAL_MS) || 1000;
 const MONITOR_FETCH_LIMIT = Number(process.env.INBOX_MONITOR_FETCH_LIMIT) || 50;
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));

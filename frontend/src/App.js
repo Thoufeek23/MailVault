@@ -46,14 +46,9 @@ function App() {
         return;
       }
 
-      const token = localStorage.getItem('token');
-      if (!token) {
-        return;
-      }
-
       const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       const wsBase = apiBase.replace(/^http/i, 'ws');
-      const socket = new WebSocket(`${wsBase}/ws/inbox-monitor?token=${encodeURIComponent(token)}`);
+      const socket = new WebSocket(`${wsBase}/ws/inbox-monitor`);
       socketRef.current = socket;
 
       socket.onopen = () => {

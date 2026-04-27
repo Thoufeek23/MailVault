@@ -1,23 +1,24 @@
 import React, { useEffect, useContext } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 
 const AuthCallback = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const { setAuthToken } = useContext(AuthContext);
+  const { fetchUser } = useContext(AuthContext);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const token = params.get('token');
+    const completeAuth = async () => {
+      const res = await fetchUser({ silent: true });
+      if (res && res.data && res.data.data && res.data.data.user) {
+        navigate('/dashboard', { replace: true });
+        return;
+      }
 
-    if (token) {
-      setAuthToken(token);
-      navigate('/dashboard');
-    } else {
       navigate('/login');
-    }
-  }, [location, navigate, setAuthToken]);
+    };
+
+    completeAuth();
+  }, [fetchUser, navigate]);
 
   return <div>Loading...</div>;
 };

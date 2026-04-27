@@ -79,7 +79,7 @@ server.on('upgrade', async (req, socket, head) => {
       return;
     }
 
-    const token = requestUrl.searchParams.get('token') || getTokenFromCookie(req.headers.cookie);
+    const token = getTokenFromCookie(req.headers.cookie);
     if (!token) {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();

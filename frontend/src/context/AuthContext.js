@@ -7,29 +7,30 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUser = useCallback(async () => {
-    setLoading(true);
+  const fetchUser = useCallback(async (options = {}) => {
+    const { silent = false } = options;
+
+    if (!silent) {
+      setLoading(true);
+    }
+
     try {
       const res = await api.get('/auth/current_user');
       if (res.data && res.data.data.user) {
         setUser(res.data.data.user);
       } else {
         setUser(null);
-        localStorage.removeItem('token');
       }
+      return res;
     } catch (err) {
       setUser(null);
-      localStorage.removeItem('token');
+      return null;
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
-
-  const setAuthToken = useCallback(async (token) => {
-    localStorage.setItem('token', token);
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    await fetchUser();
-  }, [fetchUser]);
 
   const login = () => {
     window.location.href = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/auth/google`;
@@ -41,22 +42,15 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
-      localStorage.removeItem('token');
-      delete api.defaults.headers.common['Authorization'];
       setUser(null);
     }
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      setAuthToken(token);
-    } else {
-      setLoading(false);
-    }
-  }, [setAuthToken]);
+    fetchUser();
+  }, [fetchUser]);
 
-  const value = { user, loading, login, logout, setAuthToken, fetchUser };
+  const value = { user, loading, login, logout, fetchUser };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

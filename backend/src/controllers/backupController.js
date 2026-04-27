@@ -1,7 +1,9 @@
 const gmailService = require('../services/gmailService');
 const storageService = require('../services/storageService');
 const EmailMeta = require('../models/EmailMeta');
-const nlpService = require('../services/nlpService');
+const { processAndStoreSingleEmail } = require('../services/emailProcessingService');
+const { buildRawMimeEmail, toBase64Url } = require('../utils/mimeBuilder');
+const { pLimit } = require('../utils/promiseUtils');
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -33,96 +35,6 @@ const startOfMonth = (date) => {
   return value;
 };
 
-const MIME_LINE_BREAK = '\r\n';
-
-const sanitizeHeaderValue = (value) => {
-  return String(value || '')
-    .replace(/[\r\n]+/g, ' ')
-    .trim();
-};
-
-const normalizeBody = (value) => {
-  return String(value || '').replace(/\r?\n/g, MIME_LINE_BREAK);
-};
-
-const isLikelyHtml = (value) => /<\/?[a-z][\s\S]*>/i.test(String(value || ''));
-
-const chunkBase64 = (value) => {
-  const chunks = [];
-  for (let i = 0; i < value.length; i += 76) {
-    chunks.push(value.slice(i, i + 76));
-  }
-  return chunks.join(MIME_LINE_BREAK);
-};
-
-const toBase64Url = (value) => {
-  const base64 = Buffer.isBuffer(value)
-    ? value.toString('base64')
-    : Buffer.from(String(value || ''), 'utf8').toString('base64');
-
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-};
-
-const buildRawMimeEmail = (emailData, attachmentPayloads) => {
-  const subject = sanitizeHeaderValue(emailData.subject || '(No Subject)');
-  const from = sanitizeHeaderValue(emailData.from || 'unknown@example.com');
-  const to = sanitizeHeaderValue(emailData.to || from);
-  const body = normalizeBody(emailData.body || '');
-  const dateValue = emailData.date ? new Date(emailData.date) : null;
-  const hasValidDate = dateValue && !Number.isNaN(dateValue.getTime());
-  const contentType = isLikelyHtml(body) ? 'text/html' : 'text/plain';
-
-  const headers = [
-    `From: ${from}`,
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    `MIME-Version: 1.0`
-  ];
-
-  if (hasValidDate) {
-    headers.push(`Date: ${dateValue.toUTCString()}`);
-  }
-
-  if (!Array.isArray(attachmentPayloads) || attachmentPayloads.length === 0) {
-    return [
-      ...headers,
-      `Content-Type: ${contentType}; charset="UTF-8"`,
-      'Content-Transfer-Encoding: 8bit',
-      '',
-      body
-    ].join(MIME_LINE_BREAK);
-  }
-
-  const boundary = `gmail-backup-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
-  const lines = [
-    ...headers,
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    '',
-    `--${boundary}`,
-    `Content-Type: ${contentType}; charset="UTF-8"`,
-    'Content-Transfer-Encoding: 8bit',
-    '',
-    body
-  ];
-
-  attachmentPayloads.forEach((attachment, index) => {
-    const filename = sanitizeHeaderValue(attachment.filename || `attachment-${index + 1}`);
-    const partType = sanitizeHeaderValue(attachment.contentType || 'application/octet-stream');
-    const partBase64 = chunkBase64(Buffer.from(attachment.content).toString('base64'));
-
-    lines.push(
-      `--${boundary}`,
-      `Content-Type: ${partType}; name="${filename}"`,
-      'Content-Transfer-Encoding: base64',
-      `Content-Disposition: attachment; filename="${filename}"`,
-      '',
-      partBase64
-    );
-  });
-
-  lines.push(`--${boundary}--`, '');
-  return lines.join(MIME_LINE_BREAK);
-};
 
 const getBackupPayload = async (emailMeta) => {
   if (emailMeta && emailMeta.supabasePath) {
@@ -252,39 +164,6 @@ const GMAIL_STATUS_CACHE_TTL_MS = Number(process.env.GMAIL_STATUS_CACHE_TTL_MS) 
 const GMAIL_STATUS_REFRESH_LIMIT = Number(process.env.GMAIL_STATUS_REFRESH_LIMIT) || 75;
 const GMAIL_STATUS_CONCURRENCY = Math.max(1, Number(process.env.GMAIL_STATUS_CONCURRENCY) || 6);
 
-const pLimit = (concurrency) => {
-  let activeCount = 0;
-  const queue = [];
-
-  const next = () => {
-    if (activeCount >= concurrency) {
-      return;
-    }
-
-    const item = queue.shift();
-    if (!item) {
-      return;
-    }
-
-    activeCount += 1;
-    const { fn, resolve, reject } = item;
-
-    Promise.resolve()
-      .then(fn)
-      .then(resolve)
-      .catch(reject)
-      .finally(() => {
-        activeCount -= 1;
-        next();
-      });
-  };
-
-  return (fn) => new Promise((resolve, reject) => {
-    queue.push({ fn, resolve, reject });
-    next();
-  });
-};
-
 const enrichWithCachedGmailStatus = async (gmail, userId, emails) => {
   const now = Date.now();
   const limit = pLimit(GMAIL_STATUS_CONCURRENCY);
@@ -387,74 +266,17 @@ exports.startBackup = async (req, res) => {
 
     const results = [];
     for (const msg of messages) {
-      // Skip if already backed up
-      let exists = await EmailMeta.findOne({ userId, messageId: msg.id });
+      const result = await processAndStoreSingleEmail({
+        gmail,
+        userId,
+        messageId: msg.id
+      });
 
-      if (!exists) {
-        exists = await EmailMeta.findOne({ userId, restoredMessageId: msg.id });
+      if (!result.processed) {
+        continue;
       }
 
-      const needsAttachmentRepair = exists
-        && Array.isArray(exists.fullContent && exists.fullContent.attachments)
-        && exists.fullContent.attachments.length > 0
-        && (!Array.isArray(exists.attachmentPaths) || exists.attachmentPaths.length === 0);
-
-      if (exists && !needsAttachmentRepair) continue;
-
-      const fullEmail = await gmailService.processEmail(gmail, msg.id);
-      const storageResult = await storageService.uploadToSupabase(userId.toString(), msg.id, fullEmail);
-      const fullContent = {
-        ...fullEmail,
-        attachments: storageResult.attachments
-      };
-      delete fullContent.attachmentBlobs;
-
-      if (exists) {
-        await EmailMeta.updateOne(
-          { _id: exists._id },
-          {
-            $set: {
-              threadId: fullEmail.threadId,
-              subject: fullEmail.subject,
-              from: fullEmail.from,
-              to: fullEmail.to,
-              date: fullEmail.date,
-              supabasePath: storageResult.emailJsonPath,
-              attachmentPaths: storageResult.attachments,
-              fullContent
-            }
-          }
-        );
-      } else {
-        try {
-          await EmailMeta.create({
-            userId,
-            messageId: msg.id,
-            threadId: fullEmail.threadId,
-            subject: fullEmail.subject,
-            from: fullEmail.from,
-            to: fullEmail.to,
-            date: fullEmail.date,
-            supabasePath: storageResult.emailJsonPath,
-            attachmentPaths: storageResult.attachments,
-            fullContent
-          });
-          await nlpService.createAndStoreEmbedding(
-            userId.toString(), 
-            msg.id, 
-            fullEmail.body, 
-            storageService.supabase
-          );
-
-          
-        } catch (createErr) {
-          if (createErr && createErr.code === 11000) {
-            continue;
-          }
-          throw createErr;
-        }
-      }
-      results.push(msg.id);
+      results.push(result.messageId);
     }
 
     console.log(`Backup completed for user ${userId}: ${results.length} email(s)`);
@@ -492,74 +314,23 @@ exports.importEmails = async (req, res) => {
 
     const results = [];
     for (const msg of messages) {
-      let exists = await EmailMeta.findOne({ userId, messageId: msg.id });
+      const result = await processAndStoreSingleEmail({
+        gmail,
+        userId,
+        messageId: msg.id
+      });
 
-      if (!exists) {
-        exists = await EmailMeta.findOne({ userId, restoredMessageId: msg.id });
+      if (!result.processed) {
+        continue;
       }
 
-      const needsAttachmentRepair = exists
-        && Array.isArray(exists.fullContent && exists.fullContent.attachments)
-        && exists.fullContent.attachments.length > 0
-        && (!Array.isArray(exists.attachmentPaths) || exists.attachmentPaths.length === 0);
-
-      if (exists && !needsAttachmentRepair) continue;
-
-      const fullEmail = await gmailService.processEmail(gmail, msg.id);
-      const storageResult = await storageService.uploadToSupabase(userId.toString(), msg.id, fullEmail);
-      const fullContent = {
-        ...fullEmail,
-        attachments: storageResult.attachments
-      };
-      delete fullContent.attachmentBlobs;
-
-      if (exists) {
-        await EmailMeta.updateOne(
-          { _id: exists._id },
-          {
-            $set: {
-              threadId: fullEmail.threadId,
-              subject: fullEmail.subject,
-              from: fullEmail.from,
-              to: fullEmail.to,
-              date: fullEmail.date,
-              supabasePath: storageResult.emailJsonPath,
-              attachmentPaths: storageResult.attachments,
-              fullContent
-            }
-          }
-        );
-      } else {
-        try {
-          await EmailMeta.create({
-            userId,
-            messageId: msg.id,
-            threadId: fullEmail.threadId,
-            subject: fullEmail.subject,
-            from: fullEmail.from,
-            to: fullEmail.to,
-            date: fullEmail.date,
-            supabasePath: storageResult.emailJsonPath,
-            attachmentPaths: storageResult.attachments,
-            fullContent
-          });
-          await nlpService.createAndStoreEmbedding(
-            userId.toString(), 
-            msg.id, 
-            fullEmail.body, 
-            storageService.supabase
-          );
-          // 3. Pause for 4.2 seconds to stay safely under 15 requests per minute
-          console.log(`Embedding saved for ${msg.id}. Pausing to prevent rate limits...`);
-          await delay(4200);
-        } catch (createErr) {
-          if (createErr && createErr.code === 11000) {
-            continue;
-          }
-          throw createErr;
-        }
+      if (result.created) {
+        // Pause to stay safely under 15 requests per minute.
+        console.log(`Embedding saved for ${msg.id}. Pausing to prevent rate limits...`);
+        await delay(4200);
       }
-      results.push(msg.id);
+
+      results.push(result.messageId);
     }
 
     console.log(`Import completed for user ${userId}: ${results.length} email(s)`);

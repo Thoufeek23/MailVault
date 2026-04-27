@@ -8,7 +8,7 @@ export const useAuth = () => {
   const checkAuth = async () => {
     try {
       const res = await api.get('/auth/current_user');
-      setUser(res.data.user);
+      setUser(res.data && res.data.data ? res.data.data.user : null);
     } catch (err) {
       setUser(null);
     } finally {
